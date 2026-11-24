@@ -1,0 +1,5 @@
+{
+  "name": "readback",
+  "version": "0.0.0-spike",
+  "description": "M0 spike: capture hook payloads and test the hook behaviours Readback depends on."
+}

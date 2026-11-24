@@ -61,7 +61,9 @@ Priority: **M** = must (v0.1), **S** = should (v0.1 if time allows), **C** = cou
 | FR-21 | The listener accepts a closed vocabulary: **allow** ("allow", "yes", "approve"), **deny** ("deny", "no", "reject"), **defer** ("show me", "wait", "keyboard"). | M |
 | FR-22 | **allow** returns `behavior: "allow"` for this one request only. Voice never grants persistent rules (`updatedPermissions`). | M |
 | FR-23 | **deny** returns `behavior: "deny"` with message "Denied by voice". | M |
-| FR-24 | **defer**, silence for `answer_timeout` (default 20 s), low-confidence recognition, or any error → the hook exits 0 with no decision, and Claude Code shows its normal permission dialog. | M |
+| FR-24 | **defer**, silence for `answer_timeout` (default 20 s), low-confidence recognition, or any error → the hook exits 0 with no decision. The normal permission dialog stays up. | M |
+| FR-24a | Claude Code shows its normal dialog about 6 s into the request, *while the hook is still waiting* (verified in M0). Voice and keyboard are both live from then on, and the first answer wins. The spoken prompt ends with "…or answer on screen". | M |
+| FR-24b | When the user answers on screen, Claude Code kills the hook (verified in M0). The daemon treats the shim's socket closing as "answered elsewhere": it stops speech for that request, closes the mic within 250 ms, and discards any answer it recognises afterwards. A voice answer can never apply to a request that has already been decided. | M |
 | FR-25 | Requests matching the `never_by_voice` patterns are never voice-approved. They are announced and fall through to the keyboard. Default patterns: `rm -rf`, `git push --force`, `git reset --hard`, `sudo`, `DROP `, `terraform apply`, `kubectl delete`. | M |
 | FR-26 | The listener opens only after the spoken prompt finishes playing, and closes on the first answer. This prevents Readback's own speech being heard as an answer. | M |
 | FR-27 | A short confirmation tone plays after a voice answer is accepted (distinct tones for allow and deny). | S |

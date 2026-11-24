@@ -10,5 +10,6 @@ The Stop hook input includes `transcript_path` and `last_assistant_message`. The
 Readback uses only `last_assistant_message` and never opens the transcript.
 
 ## Consequences
+- **Verified in M0 (2026-11-24, Claude Code 2.1.330).** `last_assistant_message` was present in 27 of 27 Stop events. The transcript matched it at Stop time in only 2 of 22 manual turns, and in the scripted sessions the transcript file was never written at all. Never read `transcript_path` for speech.
 - Readback is reliable across Claude Code versions and avoids parsing an undocumented format.
 - Summaries see only the final message, not earlier text in the turn. That is acceptable, because the final message is what the user would read.

@@ -177,8 +177,11 @@ RECEIVED → GATED ─(never_by_voice match / voice_approval=false)→ ANNOUNCE_
               └→ SPEAKING → LISTENING ─("allow")→ DONE(allow) + tone
                                      ├("deny")→ DONE(deny) + tone
                                      ├("show me"/unclear/low confidence)→ DONE(null)
-                                     └(answer_timeout)→ DONE(null)
+                                     ├(answer_timeout)→ DONE(null)
+                                     └(shim socket closed)→ CANCELLED: stop speech, close mic, drop late results
 ```
+
+**Race with the on-screen dialog (M0 finding).** Claude Code shows the normal dialog about 6 s after the request, while the hook is still waiting. If the user answers there, Claude Code kills the hook process. The broker learns this only when the shim's socket closes, so every request is keyed by its connection. A result from the recogniser is applied only if that connection is still open at the moment of writing the reply. The shim writes the decision in a single `write()` and exits, so there is no partial-decision state.
 
 **Describe** builds the spoken request, with no raw command longer than 8 words:
 
@@ -197,6 +200,8 @@ RECEIVED → GATED ─(never_by_voice match / voice_approval=false)→ ANNOUNCE_
 ```
 
 On a match, say "Claude wants to run a protected command. Please use the keyboard." and return null.
+
+**Timing:** Claude Code's own dialog appears at about 6 s (FR-24a), so `answer_timeout` (20 s) bounds only the voice side. The spoken prompt ends with "…or answer on screen".
 
 **Concurrency:** only one open request per daemon. Another request arriving while one is open returns null immediately, so it falls back to the dialog.
 

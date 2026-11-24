@@ -15,5 +15,6 @@ While a PermissionRequest is open, the daemon opens the mic after the spoken pro
 - **Cloud speech-to-text.** It breaks the privacy default.
 
 ## Consequences
+- **Verified in M0 (2026-11-24, Claude Code 2.1.330).** The dialog appears about 6 s into the hook's wait; answering it kills the hook; a hook decision sent while the dialog is up (no keypress) is applied. So voice and keyboard race, and the keyboard is final once pressed. The broker cancels on socket close and never applies a late answer (FR-24a, FR-24b).
 - Voice approval needs extra installs (sox, whisper-cpp, a 75 MB model). Speech output works without them.
 - Safety rests on the fail-closed design, the `never_by_voice` list, and the zero-false-allow release gate.
