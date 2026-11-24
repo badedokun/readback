@@ -12,14 +12,14 @@ Milestones run in order. Each has a gate that must pass before the next one star
 
 Goal: prove the hook facts this design depends on.
 
-- [ ] Write a capture plugin that logs the stdin of every hook event to a file. Record fixtures for Stop, Notification, PermissionRequest, UserPromptSubmit and SessionStart/End.
-- [ ] Confirm that Stop carries `last_assistant_message` and that it matches the visible final reply in 20 turns.
-- [ ] Confirm the PermissionRequest output schema: return allow, then deny, then nothing, and observe the dialog behaviour.
-- [ ] Confirm that typing `/readback:stop` reaches UserPromptSubmit and that `decision:block` + `suppressOriginalPrompt` keeps it from Claude. If not, test `UserPromptExpansion`.
-- [ ] Confirm a sync PermissionRequest hook can wait 20 s without side effects.
-- [ ] Speak `last_assistant_message`'s last sentence with `say` from an async Stop hook.
+- [x] Write a capture plugin that logs the stdin of every hook event to a file. Record fixtures for Stop, Notification, PermissionRequest, UserPromptSubmit and SessionStart/End.
+- [x] Confirm that Stop carries `last_assistant_message` and that it matches the visible final reply in 20 turns.
+- [x] Confirm the PermissionRequest output schema: return allow, then deny, then nothing, and observe the dialog behaviour.
+- [x] Confirm that typing `/readback:stop` reaches UserPromptSubmit and that `decision:block` + `suppressOriginalPrompt` keeps it from Claude. If not, test `UserPromptExpansion`.
+- [x] Confirm a sync PermissionRequest hook can wait 20 s without side effects.
+- [x] Speak `last_assistant_message`'s last sentence with `say` from an async Stop hook.
 
-**Gate:** all six confirmed, or the design docs updated with the workarounds.
+**Gate:** all six confirmed, or the design docs updated with the workarounds. **Passed 2026-11-24.** See [spike/README.md](../spike/README.md).
 
 ## M1 — macOS alpha (≈ 1 week)
 
