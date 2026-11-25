@@ -1,0 +1,152 @@
+[
+  {
+    "name": "outcome-and-question",
+    "mode": "brief",
+    "expected": "I added a rate limiter to rateLimit.ts and wired it into the router. Want me to commit this?"
+  },
+  {
+    "name": "outcome-and-question-chatty",
+    "mode": "chatty",
+    "expected": "I added a rate limiter to rateLimit.ts and wired it into the router. All 42 tests pass. Want me to commit this?"
+  },
+  {
+    "name": "markdown-summary-list",
+    "mode": "brief",
+    "expected": "Fixed the null check in session.ts."
+  },
+  {
+    "name": "hedge-first",
+    "mode": "brief",
+    "expected": "The deploy failed because the image tag was missing. Should I re-run it with the right tag?"
+  },
+  {
+    "name": "url-and-hash",
+    "mode": "chatty",
+    "expected": "Done — see a link for details. Committed."
+  },
+  {
+    "name": "table-only",
+    "mode": "brief",
+    "expected": ""
+  },
+  {
+    "name": "code-only",
+    "mode": "brief",
+    "expected": ""
+  },
+  {
+    "name": "many-paths",
+    "mode": "chatty",
+    "expected": "The migration touched 001 users.sql, 002 orders.sql and another file. I ran it against staging and it succeeded. Do you want me to run it on production?"
+  },
+  {
+    "name": "long-question",
+    "mode": "brief",
+    "expected": "I ran the migration against staging and it succeeded. Do you want me to proceed?"
+  },
+  {
+    "name": "tests-failing",
+    "mode": "brief",
+    "expected": "I updated the parser to handle empty input. Should I update the tests or the parser?"
+  },
+  {
+    "name": "explanation-no-action",
+    "mode": "brief",
+    "expected": "The cache is keyed by tenant and route, so two tenants never share an entry."
+  },
+  {
+    "name": "uuid",
+    "mode": "brief",
+    "expected": "Created the webhook with an ID and enabled it for the staging tenant."
+  },
+  {
+    "name": "big-number",
+    "mode": "brief",
+    "expected": "The table has about 12 million rows, so I added an index on created at."
+  },
+  {
+    "name": "eg-abbreviation",
+    "mode": "brief",
+    "expected": "I renamed the config keys to snake case, for example maxRetries became max retries."
+  },
+  {
+    "name": "question-not-to-user",
+    "mode": "brief",
+    "expected": "The worker ran out of memory, so I raised the limit to 2 GB and re-ran it."
+  },
+  {
+    "name": "blockquote-and-html",
+    "mode": "brief",
+    "expected": "I fixed the timeout by raising it to 30 seconds."
+  },
+  {
+    "name": "numbered-steps",
+    "mode": "chatty",
+    "expected": "Installed the dependencies. Ran the tests: all green. Shall I open a pull request?"
+  },
+  {
+    "name": "checkbox-list",
+    "mode": "brief",
+    "expected": "Added the endpoint. Would you like me to update the docs too?"
+  },
+  {
+    "name": "emoji-heavy",
+    "mode": "brief",
+    "expected": "Deployed to production! Everything looks healthy."
+  },
+  {
+    "name": "empty",
+    "mode": "brief",
+    "expected": ""
+  },
+  {
+    "name": "whitespace",
+    "mode": "brief",
+    "expected": ""
+  },
+  {
+    "name": "symbols-only-sentence",
+    "mode": "brief",
+    "expected": "I moved the helper into utils."
+  },
+  {
+    "name": "alerts-mode",
+    "mode": "alerts",
+    "expected": ""
+  },
+  {
+    "name": "inline-code-long",
+    "mode": "brief",
+    "expected": "I replaced the code with a bounded pool of 5 workers."
+  },
+  {
+    "name": "link-text",
+    "mode": "brief",
+    "expected": "I updated the contributing guide with the new release steps."
+  },
+  {
+    "name": "single-word",
+    "mode": "brief",
+    "expected": "Done."
+  },
+  {
+    "name": "interrupt-style",
+    "mode": "brief",
+    "expected": "I stopped before running the migration because it drops a column. How do you want to handle the existing data?"
+  },
+  {
+    "name": "chatty-long",
+    "mode": "chatty",
+    "expected": "I refactored the payment module into three files. I also fixed a rounding bug in currency conversion that affected amounts over 1000. Next I could add retries for the gateway calls. Want me to do that now?"
+  },
+  {
+    "name": "heading-only",
+    "mode": "brief",
+    "expected": ""
+  },
+  {
+    "name": "snake-and-arrows",
+    "mode": "brief",
+    "expected": "Changed retry count from 3 to 5 in config.toml and restarted the worker."
+  }
+]

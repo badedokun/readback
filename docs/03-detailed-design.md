@@ -16,20 +16,21 @@ readback/
 ├── .claude-plugin/marketplace.json
 ├── hooks/hooks.json
 ├── skills/<command>/SKILL.md        # stop, mute, unmute, mode, repeat, test, voice, rate
-├── bin/readback-hook.mjs             # compiled shim entry
-├── src/
-│   ├── shim/                        # per-event handlers (no heavy imports)
+├── bin/readback-hook.mjs             # the shim: every hook event (no heavy imports)
+├── src/                              # plain ES modules + JSDoc (ADR-0002 amendment)
 │   ├── daemon/
-│   │   ├── main.ts                  # boot, socket, lifecycle
-│   │   ├── ipc.ts
-│   │   ├── summarizer/{rules.ts,haiku.ts,sanitize.ts}
-│   │   ├── queue.ts
-│   │   ├── tts/{index.ts,say.ts,piper.ts,kokoro.ts,espeak.ts,openai.ts,elevenlabs.ts}
-│   │   ├── broker.ts
-│   │   ├── listener/{index.ts,whisper.ts,vocabulary.ts}
-│   │   └── config.ts
-│   └── shared/{protocol.ts,log.ts}
-├── test/{golden/,contract/,queue/,broker/,engines/}
+│   │   ├── main.mjs                  # lock, socket, lifecycle
+│   │   ├── daemon.mjs                # request routing, sessions, commands
+│   │   ├── summarizer/{rules.mjs,sanitize.mjs}      # haiku.mjs in M2
+│   │   ├── queue.mjs
+│   │   ├── tts/index.mjs             # say + record (test) engines; others in M2/M3
+│   │   ├── broker.mjs
+│   │   ├── listener/{index.mjs,vocabulary.mjs}
+│   │   ├── config.mjs
+│   │   └── util.mjs
+│   └── shared/{paths.mjs,log.mjs}
+├── test/{golden/,contract/fixtures/,*.test.mjs}
+├── spike/{run_m0.py,run_m1_live.py}  # live drivers for real Claude Code sessions
 └── docs/
 ```
 
@@ -140,7 +141,7 @@ Pipeline, applied in order to `last_assistant_message`:
 5. **Sanitize** (shared with the Haiku strategy):
     - Paths → basename, at most 2 per utterance, so `src/auth/login.ts` becomes "login.ts".
     - Hashes and IDs (hex ≥ 7 characters, UUIDs) → "a commit" or "an ID".
-    - Numbers > 6 digits → "a large number".
+    - Numbers > 6 digits → "about 12 million" (rounded to millions, billions or trillions).
     - URLs → "a link".
     - Remove emoji and markdown symbols.
     - Expand common abbreviations for TTS: "e.g." → "for example", "PR" → "P R" where the engine needs it.
@@ -187,16 +188,18 @@ RECEIVED → GATED ─(never_by_voice match / voice_approval=false)→ ANNOUNCE_
 
 | Tool | Spoken form |
 |---|---|
-| `Bash` | "Claude wants to run <first 8 words of command>. Allow?" |
-| `Edit` / `Write` | "Claude wants to edit <basename>. Allow?" |
-| `WebFetch` | "Claude wants to open <hostname>. Allow?" |
-| MCP tool | "Claude wants to use <server> <tool>. Allow?" |
-| other | "Claude wants to use <tool_name>. Allow?" |
+| `Bash` | "Claude wants to run <first 8 words of command>." |
+| `Edit` / `Write` | "Claude wants to edit <basename>." |
+| `WebFetch` | "Claude wants to open <hostname>." |
+| MCP tool | "Claude wants to use <server> <tool>." |
+| other | "Claude wants to use <tool_name>." |
+
+The broker appends "Say yes or no, or answer on screen." when it will listen, and "Please answer on screen." when it will not (announce-only). "Yes" and "no" are asked for because they were the most reliably recognised answers in the M1 microphone tests.
 
 **Gate.** `never_by_voice` holds regexes matched against `JSON.stringify(tool_input)`. Defaults:
 
 ```
-\brm\s+-[a-z]*r[a-z]*f, git\s+push\s+.*--force, git\s+reset\s+--hard, \bsudo\b, \bDROP\s+(TABLE|DATABASE)\b, terraform\s+(apply|destroy), kubectl\s+delete, gcloud\s+.*\bdelete\b
+\brm\s+-[a-z]*r[a-z]*f, \brm\s+-[a-z]*f[a-z]*r, git\s+push\b.*--force, git\s+push\b.*\s-f\b, git\s+reset\s+--hard, \bsudo\b, \bDROP\s+(TABLE|DATABASE)\b, terraform\s+(apply|destroy), kubectl\s+delete, gcloud\s+.*\bdelete\b
 ```
 
 On a match, say "Claude wants to run a protected command. Please use the keyboard." and return null.
@@ -207,8 +210,10 @@ On a match, say "Claude wants to run a protected command. Please use the keyboar
 
 ## 8. Answer listener
 
-- Capture: `sox -d` (`rec`), 16 kHz mono, started only in the LISTENING state, after playback ends + 250 ms.
-- Recognition: whisper.cpp `whisper-cli` with `tiny.en`, run on each utterance segment. Segments are cut by voice-activity detection: energy threshold plus 600 ms of silence.
+- Capture: `rec` (sox), 16 kHz mono (resampled from the device rate), started only in the LISTENING state, after playback ends + 250 ms. One utterance per capture: sox's `silence` effect starts on 0.05 s above 1% amplitude, stops after 0.6 s below it, and caps at 4 s. (M1 tuning on a real mic: 2% missed quiet speech; 0.8% fired on room noise.)
+- Recognition: whisper.cpp `whisper-cli` with `tiny.en` and the vocabulary hint `--prompt "Allow. Deny. Yes. No. Approve. Reject. Show me."`. Without the hint, tiny.en hears "deny" as "Tonight" and scores "Allow" at 0.37. With it, answers score 0.89–0.99, and noise and unrelated speech still fail to match. **Never add "okay" to the vocabulary**: with the hint, pink noise transcribes as "Okay".
+- Confidence = the mean probability of word tokens only (special tokens such as `<|endoftext|>` and punctuation excluded).
+- M1 measurement (laptop speaker → laptop mic, synthetic voice, 28 trials): 22 correct, **0 false allows**. Every miss was "no decision", so the dialog decided.
 - Vocabulary mapping: normalize to lowercase letters, then exact-match one of:
 
 | Decision | Phrases |

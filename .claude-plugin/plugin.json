@@ -1,0 +1,7 @@
+{
+  "name": "readback",
+  "version": "0.1.0-alpha.0",
+  "description": "Hear Claude Code: spoken turn summaries and voice approval of permission prompts.",
+  "author": { "name": "Readback contributors" },
+  "license": "MIT"
+}
