@@ -21,14 +21,32 @@ Readback:  "Added a rate limiter to the login route. Tests pass. Want me to comm
 
 ![Architecture](docs/diagrams/01-system-context.png)
 
-## Planned install
+## Status
 
-```
-claude plugin marketplace add <owner>/readback
-claude plugin install readback@readback
+**M1 alpha (macOS).** Spoken turn summaries, attention alerts, `/readback:*` commands and voice approval all work, and pass the live acceptance run (`spike/run_m1_live.py`). The marketplace install arrives with v0.1.
+
+## Try it (alpha)
+
+```bash
+git clone https://github.com/badedokun/readback && cd readback
+brew install sox whisper-cpp          # only needed for voice approval
+claude --plugin-dir "$PWD"            # in any project
 ```
 
-Voice approval also needs `sox` and `whisper-cpp` (`brew install sox whisper-cpp`).
+Then type `/readback:test`. The first session downloads the 75 MB speech model (pinned URL, SHA-256 checked). macOS asks your terminal for microphone access the first time you answer by voice.
+
+When Claude asks for permission, Readback reads the request aloud. Say **"yes"** or **"no"**, or just answer on screen: the keyboard always wins. Destructive commands (`rm -rf`, `git push --force`, `sudo`, …) are never approved by voice.
+
+## Develop
+
+```bash
+npm install            # dev only: typescript + @types/node for the type check
+npm test               # unit, golden, contract and end-to-end tests (no audio)
+npm run typecheck
+python3 spike/run_m1_live.py   # live run: real Claude Code, speakers and mic (~5 min)
+```
+
+Readback has **no runtime dependencies**. It is plain ES modules with JSDoc types, so the plugin runs straight from the repository with no build step.
 
 ## Documentation
 

@@ -1,0 +1,16 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000001",
+  "transcript_path": "/home/dev/.claude/projects/-work-api-server/00000000-0000-4000-8000-000000000001.jsonl",
+  "cwd": "/work/api-server",
+  "scratchpad_dir": "/tmp/claude-scratch",
+  "prompt_id": "00000000-0000-4000-8000-0000000000aa",
+  "permission_mode": "default",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "Stop",
+  "stop_hook_active": false,
+  "last_assistant_message": "I added a rate limiter to `src/api/middleware/rateLimit.ts`.\n\nAll 42 tests pass. Want me to commit this?",
+  "background_tasks": [],
+  "session_crons": []
+}

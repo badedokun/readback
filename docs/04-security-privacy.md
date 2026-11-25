@@ -35,7 +35,7 @@ Readback can approve tool calls in Claude Code. That makes it a security-relevan
 ## 5. Supply chain
 
 - Models download over HTTPS from pinned URLs, with SHA-256 checks pinned in the source. A mismatch disables the feature.
-- npm dependencies are kept minimal: a TOML parser and the test framework. Lockfile committed. Dependabot enabled. No install scripts.
+- **No runtime npm dependencies.** The config's TOML subset is parsed in-house, and tests use the built-in `node:test`. Dev-only dependencies: `typescript` and `@types/node`, pinned, lockfile committed, installed with `--ignore-scripts`. Dependabot enabled.
 - Releases are tagged and signed. The marketplace entry points to tagged versions.
 
 ## 6. Privacy

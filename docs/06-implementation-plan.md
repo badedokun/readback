@@ -23,14 +23,16 @@ Goal: prove the hook facts this design depends on.
 
 ## M1 — macOS alpha (≈ 1 week)
 
-- [ ] Shim and daemon skeleton: IPC, lock file, lifecycle (SessionStart/End).
-- [ ] Rules summarizer and sanitizer, plus 30 golden cases.
-- [ ] Speech queue (priority, dedupe, newest wins, barge-in) and the `say` engine.
-- [ ] Notification alerts.
-- [ ] Commands: stop, mute, unmute, mode, repeat, test, status.
-- [ ] Permission broker: describe, gate, and announce-only mode.
-- [ ] Answer listener: sox + whisper.cpp `tiny.en`, the vocabulary matcher, and confidence handling.
-- [ ] Contract tests on the M0 fixtures.
+- [x] Shim and daemon skeleton: IPC, lock file, lifecycle (SessionStart/End).
+- [x] Rules summarizer and sanitizer, plus 30 golden cases.
+- [x] Speech queue (priority, dedupe, newest wins, barge-in) and the `say` engine.
+- [x] Notification alerts.
+- [x] Commands: stop, mute, unmute, mode, repeat, test, status.
+- [x] Permission broker: describe, gate, and announce-only mode.
+- [x] Answer listener: sox + whisper.cpp `tiny.en`, the vocabulary matcher, and confidence handling.
+- [x] Contract tests on the M0 fixtures.
+
+**Status 2026-11-24:** all M1 tasks done. Unit, golden, contract and end-to-end tests pass (75), and the live run (`spike/run_m1_live.py`, real Claude Code, speakers and mic) passes 6/6. The gate below is still open.
 
 **Gate:** the author uses it daily for 5 working days. There are zero false allows in daily use, and every observed speech miss has been added to the golden corpus.
 
