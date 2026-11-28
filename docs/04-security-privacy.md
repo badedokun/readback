@@ -34,7 +34,8 @@ Readback can approve tool calls in Claude Code. That makes it a security-relevan
 
 ## 5. Supply chain
 
-- Models download over HTTPS from pinned URLs, with SHA-256 checks pinned in the source. A mismatch disables the feature.
+- Models download over HTTPS from pinned URLs, with SHA-256 checks pinned in the source. A mismatch disables the feature. This download is the only network call in the default configuration: it happens once, when voice approval is enabled and sox and whisper-cli are installed, and it sends nothing about the user or their sessions. Turning voice approval off, or providing the model yourself (`READBACK_MODEL`), avoids it.
+- The opt-in Haiku summarizer (`summarizer = "claude-haiku"`) sends the message text to Anthropic through the user's own `claude` CLI and account. It is off by default, and the README says so where it is described.
 - **No runtime npm dependencies.** The config's TOML subset is parsed in-house, and tests use the built-in `node:test`. Dev-only dependencies: `typescript` and `@types/node`, pinned, lockfile committed, installed with `--ignore-scripts`. Dependabot enabled.
 - Releases are tagged and signed. The marketplace entry points to tagged versions.
 
@@ -53,5 +54,5 @@ Readback can approve tool calls in Claude Code. That makes it a security-relevan
 - [ ] All failure-path tests in the broker suite pass (no decision on every error).
 - [ ] Negative audio set: 0 false allows.
 - [ ] `never_by_voice` defaults unchanged, or the change has been reviewed.
-- [ ] No new network calls in the default configuration (CI check with network disabled).
+- [ ] No new network calls in the default configuration (`test/no-network.test.mjs`, and the CI job with network disabled). The only allowed call is the pinned model download on first enable.
 - [ ] Model SHA-256 pins verified.

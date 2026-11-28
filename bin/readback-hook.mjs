@@ -23,6 +23,8 @@ const event = process.argv[2] ?? '';
 main().catch(() => done());
 
 async function main() {
+  // Set for Readback's own `claude -p` summarizer child, so its hooks never call back in.
+  if (process.env.READBACK_DISABLE) return done();
   let input;
   try { input = JSON.parse(await readStdin()); } catch { return done(); }
   if (!input || typeof input !== 'object') return done();

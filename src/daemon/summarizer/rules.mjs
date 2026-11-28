@@ -8,9 +8,10 @@ const LIMITS = /** @type {const} */ ({
   chatty: { sentences: 4, words: 60, outcomes: 2 },
 });
 const QUESTION_TO_USER = /\b(you|your|want me|should i|shall i|would you|do you|can i|ok to|okay to)\b/i;
-const ACTION_START = /^(?:i\s+(?:have\s+|also\s+|just\s+)?|i've\s+|we\s+|and\s+)?(added|fixed|updated|created|removed|ran|deployed|implemented|wrote|merged|refactored|renamed|moved|installed|changed|built|committed|pushed|deleted|replaced|reverted|upgraded|migrated|configured|enabled|disabled|resolved|cleaned|split|extracted|finished|completed|published|released|opened|closed)\b/i;
-const RESULT = /\b(pass(?:es|ed|ing)?|fail(?:s|ed|ing|ures?)?|errors?|green|red|succeed(?:s|ed)?|broken|builds? (?:cleanly|fine))\b/i;
+const ACTION_START = /^(?:i\s+(?:have\s+|also\s+|just\s+)?|i've\s+|we\s+|and\s+)?(added|fixed|updated|created|removed|ran|deployed|implemented|wrote|merged|refactored|renamed|moved|installed|changed|built|committed|pushed|deleted|replaced|reverted|upgraded|migrated|configured|enabled|disabled|resolved|cleaned|split|extracted|finished|completed|published|released|opened|closed|switched|raised|lowered|bumped|cut|reduced|rewrote|restarted|rotated|patched|wired|split)\b/i;
+const RESULT = /\b(pass(?:es|ed|ing)?|fail(?:s|ed|ing|ures?)?|errors?|green|red|succeed(?:s|ed)?|successful(?:ly)?|broken|builds? (?:cleanly|fine))\b/i;
 const PROPOSAL = /^(?:next,?\s+|then,?\s+)?(?:i could|i can|i'd suggest|i would suggest|we could|one option is)\b/i;
+const DEICTIC = /^(?:go ahead|proceed|continue|ok|okay|sound good|sounds good|all right|alright|is that ok(?:ay)?|does that work|which (?:do you prefer|would you prefer|works))\b/i;
 const HEDGE = /^(let me|let's|i'll now|i will now|i'll|i will|here's|here is|now i|next,? i|first,? i|okay,? |ok,? |sure,? |great,? )/i;
 
 /**
@@ -23,6 +24,9 @@ export function stripMarkdown(md) {
   t = t.replace(/<!--[\s\S]*?-->/g, ' ').replace(/<\/?[a-z][^>]*>/gi, ' ');      // HTML
   t = t.replace(/!\[[^\]]*\]\([^)]*\)/g, ' ');                                    // images
   t = t.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1');                                  // links → text
+  t = t.replace(/(\*\*|__)(?=\S)([^\n]*?\S)\1/g, '$2');                            // **bold**, __bold__
+  t = t.replace(/(^|[^\w*])\*(?=\S)([^*\n]*?\S)\*(?!\w)/g, '$1$2');                  // *italic*
+  t = t.replace(/(^|[^\w])_(?=\S)([^_\n]*?\S)_(?!\w)/g, '$1$2');                    // _italic_ (not snake_case)
   // Inline code: keep short spans and paths (the sanitizer shortens paths); drop long code.
   t = t.replace(/`([^`\n]*)`/g, (_m, c) => (c.length <= 24 || /^[~./\w@+-]+\/[\w@./+-]+$/.test(c) ? c : 'the code'));
   const lines = [];
@@ -52,11 +56,11 @@ export function splitSentences(lines) {
   return out.filter((s) => !mostlySymbols(s));
 }
 
-/** More than 30% of the non-space characters are not letters. */
+/** More than 30% of the non-space characters are neither letters nor digits. */
 function mostlySymbols(s) {
   const chars = s.replace(/\s/g, '');
   if (!chars) return true;
-  const letters = (chars.match(/\p{L}/gu) ?? []).length;
+  const letters = (chars.match(/[\p{L}\p{N}]/gu) ?? []).length;   // digits are words too ("2.4.0")
   return (chars.length - letters) / chars.length > 0.3;
 }
 
@@ -74,7 +78,7 @@ function score(s, first) {
 const words = (s) => s.split(/\s+/).filter(Boolean);
 
 /** Cut a sentence to at most `max` words, at a clause boundary when one is close. */
-function truncate(sentence, max) {
+export function truncate(sentence, max) {
   const w = words(sentence);
   if (w.length <= max) return sentence;
   const end = sentence.endsWith('?') ? '?' : '.';
@@ -98,18 +102,32 @@ export function summarize(message, opts = {}) {
   const limits = LIMITS[mode] ?? LIMITS.brief;
   const sentences = splitSentences(stripMarkdown(message));
 
-  // Step 3: the last question addressed to the user.
-  let qIndex = -1;
-  for (let i = sentences.length - 1; i >= 0; i--) {
-    if (sentences[i].endsWith('?') && QUESTION_TO_USER.test(sentences[i])) { qIndex = i; break; }
+  // Step 3: the question addressed to the user. A message that ends on a question is asking
+  // the user ("Deploy now?", "Before I start: should this cover…?"); otherwise the last
+  // question with a you/should-I shape.
+  let qIndex = sentences.length && sentences[sentences.length - 1].endsWith('?') ? sentences.length - 1 : -1;
+  for (let i = sentences.length - 1; qIndex < 0 && i >= 0; i--) {
+    if (sentences[i].endsWith('?') && QUESTION_TO_USER.test(sentences[i])) qIndex = i;
   }
-  const question = qIndex >= 0 ? sanitize(sentences[qIndex]) : '';
+  // "Do you want X? And should Y?": one question in two sentences.
+  const pair = qIndex > 0 && /^(?:and|also|or|plus)\b/i.test(sentences[qIndex]) && sentences[qIndex - 1].endsWith('?')
+    && words(sentences[qIndex - 1]).length + words(sentences[qIndex]).length <= 20;
+  const question = qIndex >= 0 ? sanitize(pair ? `${sentences[qIndex - 1]} ${sentences[qIndex]}` : sentences[qIndex]) : '';
 
   // Chatty keeps a proposal right before the question ("Next I could add retries. Want me to?").
   const pIndex = mode === 'chatty' && qIndex > 0 && PROPOSAL.test(sentences[qIndex - 1]) ? qIndex - 1 : -1;
 
+  // A question that points back at the sentence before it ("Go ahead?", "Which do you
+  // prefer?" after the options) needs that sentence as its outcome.
+  const qWords = qIndex >= 0 ? words(sentences[qIndex]).length : 0;
+  const leans = !pair && qIndex > 0 && !sentences[qIndex - 1].endsWith('?') && (
+    DEICTIC.test(sentences[qIndex]) || qWords <= 3
+    || (/^which\b/i.test(sentences[qIndex]) && /,? or\b/i.test(sentences[qIndex - 1])));
+  const cIndex = leans && pIndex < 0 ? qIndex - 1 : -1;
+
   // Step 4: rank the rest, keep the best in original order.
-  const statements = sentences.map((s, i) => ({ s, i })).filter((x) => x.i !== qIndex && x.i !== pIndex && !x.s.endsWith('?'));
+  const statements = sentences.map((s, i) => ({ s, i })).filter((x) => x.i !== qIndex && x.i !== pIndex && x.i !== cIndex && !x.s.endsWith('?'));
+  // (the first half of a question pair ends in "?", so it is already excluded above)
   const firstIndex = statements[0]?.i ?? -1;
   const ranked = statements
     .map((x) => ({ ...x, n: score(x.s, x.i === firstIndex) }))
@@ -118,6 +136,11 @@ export function summarize(message, opts = {}) {
     .sort((a, b) => a.i - b.i)
     .map((x) => sanitize(x.s))
     .filter(Boolean);
+  if (cIndex >= 0) {
+    // The leaning sentence takes the last outcome slot, right before the question.
+    if (ranked.length >= limits.outcomes) ranked.pop();
+    ranked.push(sanitize(sentences[cIndex]));
+  }
   if (pIndex >= 0) ranked.push(sanitize(sentences[pIndex]));
 
   // Step 6: compose under the sentence and word budget; the question has priority (FR-03).
@@ -136,4 +159,35 @@ export function summarize(message, opts = {}) {
   // Step 7: nothing worth saying.
   if (!out) return (opts.elapsedMs ?? 0) > 60_000 ? 'Claude finished.' : '';
   return out;
+}
+
+/**
+ * Hold text from another summarizer to the same budget as the rules strategy: sanitize each
+ * sentence, keep the question if there is one, and cut to the mode's sentence and word limits.
+ * @param {string} text @param {Mode} [mode]
+ * @returns {string}
+ */
+export function clamp(text, mode = 'brief') {
+  if (mode === 'alerts') return '';
+  const limits = LIMITS[mode] ?? LIMITS.brief;
+  const sentences = splitSentences(stripMarkdown(text)).map(sanitize).filter(Boolean);
+  const qi = sentences.findLastIndex((s) => s.endsWith('?'));
+  const question = qi >= 0 ? truncate(sentences[qi], Math.min(20, limits.words)) : '';
+  // Over the sentence limit: keep the opening sentences and the one the question leans on
+  // ("Next I could add retries. Want me to?").
+  let body = sentences.filter((_, i) => i !== qi);
+  const room = limits.sentences - (question ? 1 : 0);
+  if (question && body.length > room && qi > 0 && room >= 2) {
+    body = [...body.slice(0, room - 1), sentences[qi - 1]];
+  }
+  let budget = limits.words - words(question).length;
+  const parts = [];
+  for (const s of body) {
+    if (parts.length >= room || budget < 4) break;
+    const t = truncate(s, budget);
+    parts.push(t);
+    budget -= words(t).length;
+  }
+  if (question) parts.push(question);
+  return parts.join(' ').trim();
 }

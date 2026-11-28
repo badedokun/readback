@@ -4,7 +4,7 @@
 
 /** @type {Record<Answer, string[]>} */
 export const VOCABULARY = {
-  allow: ['allow', 'yes', 'approve', 'yes allow', 'go ahead'],
+  allow: ['allow', 'yes', 'approve', 'approved', 'yes allow', 'go ahead'],
   deny: ['deny', 'no', 'reject', "don't", 'stop'],
   defer: ['show me', 'wait', 'keyboard', 'hold on'],
 };
@@ -21,9 +21,11 @@ for (const [answer, phrases] of Object.entries(VOCABULARY)) {
 
 /**
  * @param {string} transcript
- * @returns {Answer|null} null = unclear (not 1–3 words, or not an exact phrase)
+ * @returns {Answer|null} null = unclear (not 1–3 words, not an exact phrase, or has digits)
  */
 export function matchAnswer(transcript) {
+  // Digits are speech we did not ask for: "Yes, 30." must not become "yes".
+  if (/\d/.test(String(transcript ?? ''))) return null;
   const norm = normalizeAnswer(transcript);
   const n = norm ? norm.split(' ').length : 0;
   if (n < 1 || n > 3) return null;

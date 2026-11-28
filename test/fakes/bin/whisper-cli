@@ -1,0 +1,10 @@
+#!/usr/bin/env node
+// Fake whisper-cli: utterance N (file uN.wav) transcribes as the Nth entry of FAKE_WHISPER
+// ("Yes.|But wait."), with confidence 0.95, or the one given as "Yes.@0.45".
+import { writeFileSync } from 'node:fs';
+const a = process.argv.slice(2);
+const f = a[a.indexOf('-f') + 1];
+const of = a[a.indexOf('-of') + 1];
+const n = Number(/u(\d+)\.wav$/.exec(f)?.[1] ?? 0);
+const [text, p] = ((process.env.FAKE_WHISPER ?? '').split('|')[n] ?? '').split('@');
+writeFileSync(`${of}.json`, JSON.stringify({ transcription: [{ text, tokens: text ? [{ text, p: Number(p ?? 0.95) }] : [] }] }));

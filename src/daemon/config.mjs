@@ -24,12 +24,15 @@ export const DEFAULTS = Object.freeze({
   quiet_hours: '',
   voice_approval: true,
   answer_timeout: 20,
-  listener_confidence: 0.6,
+  listener_confidence: 0,          // 0 = the speech model's default (0.5 base.en, 0.6 tiny.en)
   never_by_voice: [],
   debug: false,
 });
 
 const MODES = ['alerts', 'brief', 'chatty'];
+// Cloud engines (openai, elevenlabs) and kokoro arrive in M3; until then they are rejected.
+const ENGINES = ['auto', 'say', 'piper', 'espeak'];
+const SUMMARIZERS = ['rules', 'claude-haiku', 'off'];
 const PROJECT_KEYS = new Set(['mode', 'voice_approval', 'never_by_voice', 'min_turn_seconds']);
 
 /** @param {string} text @returns {Record<string, unknown>} */
@@ -85,9 +88,11 @@ function validate(obj) {
     /** @type {any} */ (out)[k] = v;
   }
   if (out.mode && !MODES.includes(out.mode)) delete out.mode;
+  if (out.engine && !ENGINES.includes(out.engine)) delete out.engine;
+  if (out.summarizer && !SUMMARIZERS.includes(out.summarizer)) delete out.summarizer;
   if (out.rate !== undefined && (out.rate < 80 || out.rate > 500)) delete out.rate;
   if (out.answer_timeout !== undefined && (out.answer_timeout < 3 || out.answer_timeout > 25)) delete out.answer_timeout;
-  if (out.listener_confidence !== undefined && (out.listener_confidence < 0.5 || out.listener_confidence > 1)) delete out.listener_confidence;
+  if (out.listener_confidence !== undefined && out.listener_confidence !== 0 && (out.listener_confidence < 0.5 || out.listener_confidence > 1)) delete out.listener_confidence;
   return out;
 }
 

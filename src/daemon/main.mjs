@@ -18,7 +18,8 @@ const log = createLogger({ debug: loadConfig().debug });
 
 if (!acquireLock()) process.exit(0);          // another daemon owns the socket
 
-const engine = createEngine(loadConfig().engine);
+const boot = loadConfig();
+const engine = createEngine(boot.engine, { voice: boot.voice });
 const listener = new Listener({ log });
 const daemon = new Daemon({ engine, listener, tone: playTone, log });
 

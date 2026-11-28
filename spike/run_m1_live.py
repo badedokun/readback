@@ -4,7 +4,7 @@ with real `say` output and the real microphone. Voice answers are played through
 speakers with `say`, so the whole path (speaker → mic → sox → whisper → broker → hook) runs.
 
 Usage:  python3 spike/run_m1_live.py [scenario ...]
-Needs:  macOS, sox, whisper-cpp, the tiny.en model at ~/.cache/readback-dev/models, mic access
+Needs:  macOS, sox, whisper-cpp, the base.en model (the macOS default) at ~/.cache/readback-dev/models, mic access
         for the terminal running this script, and the speakers on.
 """
 import fcntl, json, os, pty, re, select, signal, struct, subprocess, sys, termios, time
@@ -14,7 +14,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 PLAY = Path.home() / "readback-spike-play"
 RUN = REPO / "spike" / "fixtures" / "raw" / f"live-{datetime.now():%Y%m%d-%H%M%S}"
-MODEL = Path.home() / ".cache" / "readback-dev" / "models" / "ggml-tiny.en.bin"
+MODEL = Path.home() / ".cache" / "readback-dev" / "models" / "ggml-base.en.bin"
 PROBE = PLAY / "probe.txt"
 SETTINGS = json.dumps({"permissions": {"ask": ["Write", "Bash"]}})
 WRITE_PROMPT = ("Use only the Write tool to create the file probe.txt containing: hi. "
@@ -95,9 +95,16 @@ class Session:
             self.send("\x03")
             self.pump(0.5)
         self.pump(1.5)
+        # SIGTERM, then SIGKILL after 5 s: with a permission dialog still open, Claude Code can
+        # ignore SIGTERM, and a blocking waitpid hung a whole run.
         try:
             os.kill(self.pid, signal.SIGTERM)
-            os.waitpid(self.pid, 0)
+            end = time.time() + 5
+            while time.time() < end and os.waitpid(self.pid, os.WNOHANG) == (0, 0):
+                self.pump(0.2)
+            if os.waitpid(self.pid, os.WNOHANG) == (0, 0):
+                os.kill(self.pid, signal.SIGKILL)
+                os.waitpid(self.pid, 0)
         except (ProcessLookupError, ChildProcessError):
             pass
         self.screen.close()
@@ -141,6 +148,8 @@ def sc_turn_spoken(s):
 
 def voice_answer(s, answer):
     PROBE.unlink(missing_ok=True)
+    wav = RUN / f"voice-{answer}.wav"
+    rec = record(60, wav)                    # what the mic heard, for diagnosing a miss
     t0 = time.time()
     s.say(WRITE_PROMPT)
     listening = s.wait(lambda: s.ev("permission.listening"), 60, "listening")
@@ -151,7 +160,8 @@ def voice_answer(s, answer):
     perm = s.wait(lambda: s.ev("permission"), 30, "decision")
     s.pump(8)
     heard = s.ev("listener.heard")
-    return {"listening_at_s": t_listen, "decision": perm[0]["decision"] if perm else None,
+    rec.terminate(); rec.wait()
+    return {"mic_heard": transcribe(wav), "listening_at_s": t_listen, "decision": perm[0]["decision"] if perm else None,
             "reason": perm[0]["reason"] if perm else None, "decided_after_ms": perm[0]["ms"] if perm else None,
             "heard": [(h["answer"], h["confidence"]) for h in heard], "file_created": PROBE.exists()}
 
