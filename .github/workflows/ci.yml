@@ -51,12 +51,15 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
       - run: npm ci --ignore-scripts
+      # piper-tts 1.2.0 (the version the Docker smoke test uses) needs piper-phonemize,
+      # which has wheels only up to Python 3.11.
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
       - name: Audio packages
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends espeak-ng pulseaudio pulseaudio-utils sox libsox-fmt-pulse cmake
-          pip3 install --user piper-tts==1.2.0
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          pip install piper-tts==1.2.0
       - name: Cache whisper.cpp, Piper voice and model
         uses: actions/cache@v4
         with:
