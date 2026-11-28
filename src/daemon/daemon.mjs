@@ -4,6 +4,7 @@ import { Broker } from './broker.mjs';
 import { inQuietHours, loadConfig, saveUserSetting } from './config.mjs';
 import { SpeechQueue } from './queue.mjs';
 import { summarize } from './summarizer/rules.mjs';
+import { summarizeHaiku } from './summarizer/haiku.mjs';
 import { projectName } from './util.mjs';
 
 /** @typedef {import('./config.mjs').Config} Config */
@@ -17,9 +18,11 @@ export class Daemon {
    * @param {{ engine: { name: string, engine: import('./queue.mjs').Engine } | null,
    *           listener: import('./listener/index.mjs').Listener | null,
    *           tone?: (k: 'allow'|'deny') => void, now?: () => number,
-   *           log: import('../shared/log.mjs').Logger, loadConfig?: typeof loadConfig }} deps
+   *           log: import('../shared/log.mjs').Logger, loadConfig?: typeof loadConfig,
+   *           haiku?: typeof summarizeHaiku }} deps
    */
-  constructor({ engine, listener, tone, now = Date.now, log, loadConfig: lc = loadConfig }) {
+  constructor({ engine, listener, tone, now = Date.now, log, loadConfig: lc = loadConfig, haiku = summarizeHaiku }) {
+    this.haiku = haiku;
     this.engineName = engine?.name ?? 'none';
     const silent = { speak: () => ({ done: Promise.resolve(), cancel() {} }) };
     this.queue = new SpeechQueue({ engine: engine?.engine ?? silent, now, log });
@@ -107,18 +110,29 @@ export class Daemon {
   }
 
   /** @private */
-  onTurn(id, msg) {
+  async onTurn(id, msg) {
     const s = this.session(id, msg.cwd);
     const cfg = this.config(s);
     if (cfg.summarizer === 'off' || cfg.mode === 'alerts' || typeof msg.text !== 'string') return {};
-    const elapsedMs = s.lastPromptAt === null ? null : this.now() - s.lastPromptAt;
+    const promptAt = s.lastPromptAt;
+    const elapsedMs = promptAt === null ? null : this.now() - promptAt;
     if (cfg.mode === 'brief' && elapsedMs !== null && elapsedMs < cfg.min_turn_seconds * 1000) {
       this.log.info('turn.skip', { reason: 'short', ms: elapsedMs });
       return {};
     }
-    // claude-haiku summarizer arrives in M2; it falls back to rules, as the design requires.
-    const text = summarize(msg.text, { mode: cfg.mode, elapsedMs });
-    this.log.info('turn', { mode: cfg.mode, chars_in: msg.text.length, words_out: text ? text.split(' ').length : 0 });
+    let text;
+    let strategy = 'rules';
+    if (cfg.summarizer === 'claude-haiku') {
+      const t0 = this.now();
+      const r = await this.haiku(msg.text, { mode: cfg.mode, elapsedMs });
+      ({ text, strategy } = r);
+      this.log.info('summarizer', { strategy, ms: this.now() - t0, ...(r.fallback ? { fallback: r.fallback } : {}) });
+      // The user typed again while the model ran: this turn is stale (FR-31).
+      if (s.lastPromptAt !== promptAt) { this.log.info('turn.skip', { reason: 'superseded' }); return {}; }
+    } else {
+      text = summarize(msg.text, { mode: cfg.mode, elapsedMs });
+    }
+    this.log.info('turn', { mode: cfg.mode, strategy, chars_in: msg.text.length, words_out: text ? text.split(' ').length : 0 });
     this.log.debug('turn.text', { text });
     if (text) this.speak(id, s, 'turn', text);
     return {};

@@ -1,0 +1,5 @@
+{
+  "name": "readback-recorder",
+  "version": "0.0.0",
+  "description": "Test-only: records hook payloads for the nightly contract check. Not shipped."
+}

@@ -1,0 +1,43 @@
+name: nightly
+# Test plan §5: record hook payloads from the latest Claude Code and diff the fields Readback
+# reads against the fixtures. A breaking change opens an issue. Needs the ANTHROPIC_API_KEY
+# repository secret; without it the job is skipped.
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        if: env.ANTHROPIC_API_KEY != ''
+      - uses: actions/setup-node@v4
+        if: env.ANTHROPIC_API_KEY != ''
+        with: { node-version: 20 }
+      - name: Record payloads with the latest Claude Code
+        if: env.ANTHROPIC_API_KEY != ''
+        id: record
+        run: |
+          npm install -g @anthropic-ai/claude-code@latest
+          echo "version=$(claude --version | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+          mkdir -p /tmp/empty && cd /tmp/empty
+          echo "Reply with the word ok." | RECORD_DIR=/tmp/record claude -p --model haiku \
+            --plugin-dir "$GITHUB_WORKSPACE/test/contract/recorder" --tools ""
+      - name: Diff against fixtures
+        if: env.ANTHROPIC_API_KEY != ''
+        id: diff
+        run: node test/contract/shape-diff.mjs /tmp/record | tee /tmp/diff.txt
+      - name: Open an issue on a breaking change
+        if: failure() && steps.diff.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create --title "Hook contract changed in Claude Code ${{ steps.record.outputs.version }}" \
+            --body "$(printf 'The nightly contract check found a breaking change.\n\n```\n%s\n```\n\nRun: %s' "$(cat /tmp/diff.txt)" "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID")"

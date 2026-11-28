@@ -11,7 +11,7 @@ test('exact phrases map to answers', () => {
 });
 
 test('anything else is unclear (fail closed)', () => {
-  for (const t of ['', 'Tonight.', 'yes please do it', 'allow everything forever', 'I allow', 'maybe', 'yes no', 'allow allow allow allow']) {
+  for (const t of ['', 'Tonight.', 'yes please do it', 'allow everything forever', 'I allow', 'maybe', 'yes no', 'allow allow allow allow', 'Yes, 30.', 'yes 2', 'No 1']) {
     assert.equal(matchAnswer(t), null, JSON.stringify(t));
   }
 });

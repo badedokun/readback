@@ -38,12 +38,13 @@ Goal: prove the hook facts this design depends on.
 
 ## M2 — Public v0.1 (≈ 1–2 weeks)
 
-- [ ] Linux support: Piper and espeak-ng engines; PulseAudio/PipeWire capture.
-- [ ] Optional Haiku summarizer.
-- [ ] Config file and project override, enforcing the safety restrictions.
-- [ ] Golden corpus at 100 or more cases.
-- [ ] Audio sets recorded, and the release gates passing.
-- [ ] CI: macOS and Linux matrix, a no-network test, a nightly contract job.
+- [x] Linux support: Piper and espeak-ng engines; PulseAudio/PipeWire capture (`parec`, `pw-record`). Engine smoke and the listener loop pass in a Linux container with a PulseAudio null sink.
+- [x] Optional Haiku summarizer (`summarizer = "claude-haiku"`): p50 1.1 s, falls back to rules on timeout or error.
+- [x] Config file and project override, enforcing the safety restrictions (built in M1; M2 adds validation of `engine` and `summarizer`).
+- [x] Golden corpus at 100 or more cases (102). Writing the new cases, and the Haiku work, found and fixed 16 speech-rule problems (none changed an existing case).
+- [x] Audio sets recorded: 28 speakers (12 non-native), 3 distances, 2,492 trials, scored with tiny.en, base.en and small.en (05 §4).
+- [ ] Audio release gates passing: 0 false allows holds with base.en; accuracy (72% / 81%) and false denies (1.8%) do not yet. small.en is more accurate (81% / 85%) but approved 5 times by mistake, so it is not used.
+- [x] CI: macOS and Linux matrix, a no-network test, a nightly contract job (`.github/workflows/`). Each job was run locally (Docker for Linux, `--network none` for no-network); the workflows first run on GitHub with the M2 pull request.
 - [ ] README with a 30-second demo video, install steps, safety notes and a tested-version range.
 - [ ] `marketplace.json`; release v0.1.0.
 

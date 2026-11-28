@@ -1,0 +1,15 @@
+{
+  "name": "readback",
+  "description": "Readback: hear Claude Code.",
+  "owner": { "name": "Readback contributors" },
+  "plugins": [
+    {
+      "name": "readback",
+      "source": "./",
+      "description": "Spoken turn summaries, attention alerts and voice approval of permission prompts. Local by default.",
+      "version": "0.1.0-alpha.0",
+      "category": "productivity",
+      "tags": ["voice", "accessibility", "tts", "hooks"]
+    }
+  ]
+}

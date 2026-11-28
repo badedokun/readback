@@ -1,4 +1,5 @@
 import { accessSync, constants } from 'node:fs';
+import { homedir } from 'node:os';
 import { delimiter, join } from 'node:path';
 
 const cache = new Map();
@@ -8,8 +9,8 @@ export function which(bin) {
   if (cache.has(bin)) return cache.get(bin);
   let found = null;
   const dirs = (process.env.PATH ?? '').split(delimiter);
-  // Hook processes may get a minimal PATH; also look where Homebrew installs.
-  for (const d of [...dirs, '/opt/homebrew/bin', '/usr/local/bin', '/usr/bin']) {
+  // Hook processes may get a minimal PATH; also look where Homebrew and pipx install.
+  for (const d of [...dirs, '/opt/homebrew/bin', '/usr/local/bin', '/usr/bin', join(homedir(), '.local', 'bin')]) {
     if (!d) continue;
     const p = join(d, bin);
     try { accessSync(p, constants.X_OK); found = p; break; } catch { /* next */ }

@@ -35,7 +35,7 @@ test('invalid values fall back to defaults', () => {
   try {
     const c = loadConfig();
     assert.equal(c.mode, 'brief'); assert.equal(c.rate, 190);
-    assert.equal(c.listener_confidence, 0.6); assert.equal(c.answer_timeout, 20);
+    assert.equal(c.listener_confidence, 0); assert.equal(c.answer_timeout, 20);
   } finally { delete process.env.READBACK_CONFIG; }
 });
 
@@ -58,4 +58,17 @@ test('quiet hours wrap midnight', () => {
   assert.ok(!inQuietHours('22:00-07:00', at(7)));
   assert.ok(inQuietHours('12:00-13:00', at(12, 30)));
   assert.ok(!inQuietHours('', at(12)));
+});
+
+test('unknown engine and summarizer values are ignored', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'rb-cfg-eng-'));
+  const file = join(dir, 'config.toml');
+  writeFileSync(file, 'engine = "openai"\nsummarizer = "gpt"\n');
+  process.env.READBACK_CONFIG = file;
+  const cfg = loadConfig();
+  assert.equal(cfg.engine, 'auto');
+  assert.equal(cfg.summarizer, 'rules');
+  writeFileSync(file, 'engine = "piper"\nsummarizer = "claude-haiku"\n');
+  assert.equal(loadConfig().engine, 'piper');
+  assert.equal(loadConfig().summarizer, 'claude-haiku');
 });

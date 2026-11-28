@@ -1,0 +1,89 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    name: unit (${{ matrix.os }}, node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '${{ matrix.node }}' }
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
+      - run: npm test
+
+  no-network:
+    # TC-50: the whole suite, including real-daemon sessions, in a network namespace with no
+    # interfaces. test/no-network.test.mjs also guards each process from the inside.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm ci --ignore-scripts
+      - run: sudo unshare --net -- sudo -u "$USER" env "PATH=$PATH" "HOME=$HOME" npm test
+
+  linux-audio:
+    # Engine smoke (Piper, espeak-ng into a PulseAudio null sink) and the listener loop
+    # (Piper → null sink → parec → whisper.cpp → vocabulary).
+    runs-on: ubuntu-latest
+    env:
+      WHISPER_TAG: v1.9.6
+      VOICE_REV: 5ec43b186ef915a195d3ddbcfd9916e76c503c3f
+      VOICES_DIR: ${{ github.workspace }}/.voices
+      READBACK_MODEL: ${{ github.workspace }}/.models/ggml-tiny.en.bin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm ci --ignore-scripts
+      # piper-tts 1.2.0 (the version the Docker smoke test uses) needs piper-phonemize,
+      # which has wheels only up to Python 3.11.
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: Audio packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends espeak-ng pulseaudio pulseaudio-utils sox libsox-fmt-pulse cmake
+          pip install piper-tts==1.2.0
+      - name: Cache whisper.cpp, Piper voice and model
+        uses: actions/cache@v4
+        with:
+          path: |
+            .whisper
+            .voices
+            .models
+          key: audio-${{ runner.os }}-${{ env.WHISPER_TAG }}-${{ env.VOICE_REV }}
+      - name: Build whisper.cpp
+        run: |
+          if [ ! -x .whisper/whisper-cli ]; then
+            git clone --depth 1 --branch "$WHISPER_TAG" https://github.com/ggml-org/whisper.cpp /tmp/whisper
+            cmake -S /tmp/whisper -B /tmp/whisper/build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DWHISPER_BUILD_TESTS=OFF
+            cmake --build /tmp/whisper/build -j --target whisper-cli
+            mkdir -p .whisper && cp /tmp/whisper/build/bin/whisper-cli .whisper/
+          fi
+          echo "$PWD/.whisper" >> "$GITHUB_PATH"
+      - name: Fetch pinned voice and model
+        run: |
+          mkdir -p .voices .models
+          base="https://huggingface.co/rhasspy/piper-voices/resolve/$VOICE_REV/en/en_US/lessac/low"
+          [ -f .voices/en_US-lessac-low.onnx ] || curl -fsSL -o .voices/en_US-lessac-low.onnx "$base/en_US-lessac-low.onnx"
+          [ -f .voices/en_US-lessac-low.onnx.json ] || curl -fsSL -o .voices/en_US-lessac-low.onnx.json "$base/en_US-lessac-low.onnx.json"
+          [ -f "$READBACK_MODEL" ] || curl -fsSL -o "$READBACK_MODEL" https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-tiny.en.bin
+          echo "921e4cf8686fdd993dcd081a5da5b6c365bfde1162e72b08d75ac75289920b1f  $READBACK_MODEL" | sha256sum -c
+      - run: sh test/smoke/linux.sh
+      - run: sh test/smoke/linux-listener.sh

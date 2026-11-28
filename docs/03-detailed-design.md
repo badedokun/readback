@@ -21,15 +21,15 @@ readback/
 │   ├── daemon/
 │   │   ├── main.mjs                  # lock, socket, lifecycle
 │   │   ├── daemon.mjs                # request routing, sessions, commands
-│   │   ├── summarizer/{rules.mjs,sanitize.mjs}      # haiku.mjs in M2
+│   │   ├── summarizer/{rules.mjs,sanitize.mjs,haiku.mjs}
 │   │   ├── queue.mjs
-│   │   ├── tts/index.mjs             # say + record (test) engines; others in M2/M3
+│   │   ├── tts/index.mjs             # say, piper, espeak-ng + record (test); kokoro/cloud in M3
 │   │   ├── broker.mjs
-│   │   ├── listener/{index.mjs,vocabulary.mjs}
+│   │   ├── listener/{index.mjs,segmenter.mjs,vocabulary.mjs}
 │   │   ├── config.mjs
 │   │   └── util.mjs
 │   └── shared/{paths.mjs,log.mjs}
-├── test/{golden/,contract/fixtures/,*.test.mjs}
+├── test/{golden/,contract/,fakes/,smoke/,audio/,*.test.mjs}
 ├── spike/{run_m0.py,run_m1_live.py}  # live drivers for real Claude Code sessions
 └── docs/
 ```
@@ -129,9 +129,9 @@ Daemon start: the shim tries to connect. On `ENOENT` or `ECONNREFUSED`, it spawn
 ### 5.1 Rules strategy (default)
 Pipeline, applied in order to `last_assistant_message`:
 
-1. **Strip** fenced code blocks, inline code longer than 24 characters, tables, block quotes, HTML and markdown links (keep the link text).
-2. **Split** into sentences. Drop sentences made mostly of symbols or paths, more than 30% non-letters.
-3. **Find the question.** Take the last sentence ending in `?`, if it is addressed to the user ("you", "want me", "should I", "shall I", "would you").
+1. **Strip** fenced code blocks, inline code longer than 24 characters, tables, block quotes, headings, HTML, emphasis markers (`**bold**`, `*italic*`, `_italic_` but not snake_case) and markdown links (keep the link text).
+2. **Split** into sentences. Drop sentences made mostly of symbols, more than 30% characters that are neither letters nor digits (digits count as words: "Version 2.4.0 is out." is kept).
+3. **Find the question.** If the message ends on a question, that is the question to the user ("Deploy now?", "Before I start: should this cover…?"). Otherwise take the last question addressed to the user ("you", "want me", "should I", "shall I", "would you"). Two questions joined by "And/Also/Or" are kept together when they fit in 20 words. A question that leans on the sentence before it ("Go ahead?", any question of 3 words or fewer, "Which do you prefer?" after a sentence with "or") takes that sentence as its outcome.
 4. **Find the outcome.** Score the remaining sentences:
     - +3 for a past-tense action verb at the start (added, fixed, updated, created, removed, ran, deployed).
     - +3 for a test or build result (pass, fail, error, green, red).
@@ -139,19 +139,22 @@ Pipeline, applied in order to `last_assistant_message`:
     - −2 for hedging or meta talk ("Let me", "I'll now", "Here's").
     - Take the top sentence, plus a second one in chatty mode.
 5. **Sanitize** (shared with the Haiku strategy):
-    - Paths → basename, at most 2 per utterance, so `src/auth/login.ts` becomes "login.ts".
+    - Paths → basename, at most 2 per utterance, so `src/auth/login.ts` becomes "login.ts"; later ones become "N other files". `file.ts:42` → "file.ts line 42". Branch-like names without an extension read with a space (`release/2.3` → "release 2.3").
     - Hashes and IDs (hex ≥ 7 characters, UUIDs) → "a commit" or "an ID".
-    - Numbers > 6 digits → "about 12 million" (rounded to millions, billions or trillions).
-    - URLs → "a link".
+    - Numbers > 6 digits, with or without thousands separators → "about 12 million" (rounded to millions, billions or trillions; "the roughly 12 million-row table"). ISO dates → "January 14, 2027".
+    - URLs → "a link" (a trailing ": a link" at the end of a sentence is dropped). "Committed the fix as 4e1d9a7" → "Committed the fix".
     - Remove emoji and markdown symbols.
     - Expand common abbreviations for TTS: "e.g." → "for example", "PR" → "P R" where the engine needs it.
 6. **Compose:** outcome + question. Brief mode allows at most 2 sentences and 30 words; truncate at a clause boundary. Chatty mode allows 4 sentences and 60 words.
 7. **Empty result:** if nothing remains, say "Claude finished." only when the turn was longer than 60 s. Otherwise stay silent.
 
 ### 5.2 Haiku strategy (opt-in)
-- Run `claude -p --model haiku --output-format text` with a fixed system prompt that encodes the speech rules, and the message (truncated to 8 kB) on stdin.
-- Timeout 4 s. On timeout or error, fall back to the rules strategy.
-- Always run the sanitizer (§5.1 step 5) on the output. Model output is never trusted to follow the rules.
+- `summarizer = "claude-haiku"`. Runs `claude -p --model haiku --output-format text --tools "" --strict-mcp-config --no-session-persistence --setting-sources "" --system-prompt <rules>` with the message on stdin, wrapped in `<message>` tags and truncated to 8 kB. `--bare` is not usable: it accepts only `ANTHROPIC_API_KEY`, and most users sign in with a subscription.
+- The child runs in an empty directory (`<data>/summarizer`), so it reads no repository, `CLAUDE.md` or project settings, and with `READBACK_DISABLE=1`, so Readback's own hooks in the child exit at once (no recursion).
+- The system prompt makes the model speak as the assistant in the first person, treat the message as data (never answer it or describe it), keep any question the message asks and never add one, never read code aloud, and answer `NOTHING` when there is nothing worth saying.
+- Timeout 4 s. On timeout, error, empty output or `NOTHING`, the rules strategy is used. Measured (M2, 10 corpus messages): p50 1.1 s, max 1.4 s.
+- The output is never trusted: it goes through the sanitizer and `clamp()`, which holds it to the mode's sentence and word limits (keeping the question, and the sentence the question leans on).
+- If the user types while the model runs, the result is dropped (the turn is stale, FR-31).
 
 ## 6. Speech queue
 
@@ -210,27 +213,45 @@ On a match, say "Claude wants to run a protected command. Please use the keyboar
 
 ## 8. Answer listener
 
-- Capture: `rec` (sox), 16 kHz mono (resampled from the device rate), started only in the LISTENING state, after playback ends + 250 ms. One utterance per capture: sox's `silence` effect starts on 0.05 s above 1% amplitude, stops after 0.6 s below it, and caps at 4 s. (M1 tuning on a real mic: 2% missed quiet speech; 0.8% fired on room noise.)
-- Recognition: whisper.cpp `whisper-cli` with `tiny.en` and the vocabulary hint `--prompt "Allow. Deny. Yes. No. Approve. Reject. Show me."`. Without the hint, tiny.en hears "deny" as "Tonight" and scores "Allow" at 0.37. With it, answers score 0.89–0.99, and noise and unrelated speech still fail to match. **Never add "okay" to the vocabulary**: with the hint, pink noise transcribes as "Okay".
+- Capture: one continuous raw stream (16 kHz mono s16le) for the whole answer window, started only in the LISTENING state, after playback ends + 250 ms. macOS: `rec` (sox). Linux: `parec` (PulseAudio, and PipeWire's Pulse server), else `pw-record`, else `rec`. sox on Linux defaults to ALSA, which blocks forever with no ALSA device, and its Pulse driver buffers its output.
+- Segmentation (`segmenter.mjs`): 20 ms frames; an utterance starts after 60 ms above the trigger level and ends after 600 ms below it, capped at 4 s. The trigger level is the higher of 0.4% of full scale (−48 dBFS) and 3× the background level, which the segmenter learns as it goes (fast when the room gets quieter, slowly when it gets louder). A fixed 1% missed every quiet trial in the M2 audio sets: speech peaking at −37 dBFS in a room at −62 dBFS. It keeps **300 ms of pre-roll** from before the trigger. M2 replaced sox's `silence` effect, which threw away everything before its trigger: that clipped word onsets ("Allow" lost its "A" and scored 0.17; "deny" came out as "Good night"). If the source stops sending data mid-utterance (some PipeWire and monitor sources send nothing in silence), the utterance ends after 600 ms without data.
+- **Allow must settle** (`SETTLE_MS` = 800): an accepted "allow" counts only if no more speech starts in the next 800 ms; otherwise it is dropped and listening continues. Deny and defer act at once. In the M2 noise set the louder trigger level split "yes … but wait" in two and "Yes" alone approved. This rule fails that case closed.
+- **Allow must be the only speech** in the window: if unclear speech was heard earlier in the window, a later "allow" is ignored. In the 28-speaker set, the tail of "The build is green and all tests pass" was transcribed as a separate "Yes.".
+- **Confidence by answer:** allow needs `listener_confidence`. Its default, 0, means the model's own bar: 0.5 for base.en and 0.6 for tiny.en. base.en scores short words lower ("Yes." at 0.59–0.85 where tiny.en gives 0.97). In the 28-speaker set, 0.5 let through no wrong allow that 0.6 would have stopped. Deny and defer need only 0.4, because they hand the decision back to the keyboard.
+- Model (`MODEL`): `base.en` on macOS and `tiny.en` on Linux. Both are pinned by URL and SHA-256, and `READBACK_MODEL` may point at either. In the 28-speaker audio set, base.en had 0 false allows and tiny.en had 1, at equal accuracy. base.en takes 0.65 s per answer with Metal but about 10 s on a 4-thread CPU.
+- Recognition: whisper.cpp `whisper-cli` with the vocabulary hint `--prompt "Allow. Deny. Yes. No. Approve. Reject. Go ahead. Stop. Don't. Show me. Wait. Hold on. Keyboard."` (every answer phrase; without "Wait", "Don't" and "Keyboard" in it, tiny.en wrote them as "We", "Done" and "People"), one utterance at a time while capture continues. Without the hint, tiny.en hears "deny" as "Tonight" and scores "Allow" at 0.37. With it, answers score 0.89–0.99, and noise and unrelated speech still fail to match. **Never add "okay" to the vocabulary**: with the hint, pink noise transcribes as "Okay".
+- Latency: about 0.7 s per clip on Apple silicon (Metal), about 3 s on a 4-thread Linux CPU, because whisper always encodes a 30 s window. `--audio-ctx 256` cut that by only a third and made tiny.en repeat itself ("Allow. Allow."), which breaks exact matching, so it is not used.
+- The answer window uses a plain timer, not `AbortSignal.any([…, AbortSignal.timeout()])`: on Node 20 the timeout signal inside `any()` can be garbage-collected and never fire (found in M2; the listener kept running past its window).
+- A transcript with digits never matches ("Yes, 30." is not "yes").
 - Confidence = the mean probability of word tokens only (special tokens such as `<|endoftext|>` and punctuation excluded).
-- M1 measurement (laptop speaker → laptop mic, synthetic voice, 28 trials): 22 correct, **0 false allows**. Every miss was "no decision", so the dialog decided.
+- Measurements (laptop speaker → laptop mic, synthetic voices): M1, 28 trials: 22 correct, **0 false allows**. M2 with the segmenter: 6/6 smoke phrases at 0.85–0.99, and the live acceptance run's "yes"/"no" at 0.98/0.93. Audio-set results are in [05-test-plan.md](05-test-plan.md) §4.
 - Vocabulary mapping: normalize to lowercase letters, then exact-match one of:
 
 | Decision | Phrases |
 |---|---|
-| allow | allow, yes, approve, yes allow, go ahead |
+| allow | allow, yes, approve, approved, yes allow, go ahead |
 | deny | deny, no, reject, don't, stop |
 | defer | show me, wait, keyboard, hold on |
 
-- Accept only when the transcript is **1–3 words** and fully matches, and whisper's average token probability is ≥ 0.6 (`listener_confidence`). Anything else is "unclear", and the listener keeps waiting until the window closes.
-- Dependencies: `brew install sox whisper-cpp` (macOS) or the distro packages. The model downloads to `${CLAUDE_PLUGIN_DATA}/models/ggml-tiny.en.bin` on first enable. If anything is missing, voice approval is disabled with a spoken one-time notice, and announcements still work.
+- Accept only when the transcript is **1–3 words** and fully matches, and whisper's average token probability clears the bar (`listener_confidence`, above). Anything else is "unclear", and the listener keeps waiting until the window closes.
+- Dependencies: `brew install sox whisper-cpp` (macOS); on Linux the distro's `pulseaudio-utils` (or PipeWire) and whisper.cpp built from source (it is not packaged by most distros). The model downloads to `${CLAUDE_PLUGIN_DATA}/models/ggml-tiny.en.bin` on first enable. If anything is missing, voice approval is disabled with a spoken one-time notice, and announcements still work.
+
+## 8a. TTS engines
+
+| Engine | Platform | How |
+|---|---|---|
+| `say` | macOS | `say -r <rate> [-v <voice>] -f -`, text on stdin. |
+| `piper` | Linux (any) | `piper --model <voice.onnx> --output-raw --length_scale <170/rate>` piped into `paplay --raw` (or `pw-cat`, or `aplay`) at the voice's sample rate. Voices live in `<data>/voices/*.onnx` with their `.onnx.json`; `voice` names one, or an absolute path. Readback does not download voices in v0.1. |
+| `espeak` | Linux (any) | `espeak-ng -s <rate> [-v <voice>] --stdin`. Robotic, but nearly always installed. |
+
+`engine = "auto"` picks `say` on macOS; on Linux, Piper when it and a voice are installed, else espeak-ng. Every process of a pipeline runs in its own process group, and cancel kills all of them (measured: 2–6 ms). Text reaches engines on stdin, never through a shell.
 
 ## 9. Configuration schema
 
 ```toml
 # ~/.config/readback/config.toml  (project override: .claude/readback.toml)
 mode = "brief"                 # alerts | brief | chatty
-engine = "auto"                # auto | say | piper | kokoro | espeak | openai | elevenlabs
+engine = "auto"                # auto | say | piper | espeak  (kokoro and cloud engines: M3)
 voice = ""                     # engine-specific; empty = engine default
 rate = 190                     # words per minute
 summarizer = "rules"           # rules | claude-haiku | off
@@ -238,7 +259,7 @@ min_turn_seconds = 10
 quiet_hours = ""               # e.g. "22:00-07:00"
 voice_approval = true
 answer_timeout = 20            # seconds
-listener_confidence = 0.6
+listener_confidence = 0           # 0 = the model's default
 never_by_voice = []            # extra regexes, appended to the defaults
 debug = false                  # log message text (off by default)
 ```

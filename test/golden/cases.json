@@ -148,5 +148,365 @@
     "name": "snake-and-arrows",
     "mode": "brief",
     "expected": "Changed retry count from 3 to 5 in config.toml and restarted the worker."
+  },
+  {
+    "name": "git-commit-push",
+    "mode": "brief",
+    "expected": "Committed the fix on fix session-timeout and pushed it. Should I open a pull request?"
+  },
+  {
+    "name": "pr-opened",
+    "mode": "brief",
+    "expected": "Opened PR 214."
+  },
+  {
+    "name": "merge-conflict",
+    "mode": "brief",
+    "expected": "The rebase stopped with a conflict in index.ts: both branches changed the import list. How would you like me to resolve it?"
+  },
+  {
+    "name": "branch-cleanup",
+    "mode": "chatty",
+    "expected": "Deleted 6 merged local branches. I kept release 2.3 because it has unpushed commits. Want me to push it first?"
+  },
+  {
+    "name": "amend-warning",
+    "mode": "brief",
+    "expected": "I created a new commit instead."
+  },
+  {
+    "name": "all-green-counts",
+    "mode": "brief",
+    "expected": "All 312 tests pass (4 skipped)."
+  },
+  {
+    "name": "flaky-test",
+    "mode": "brief",
+    "expected": "The checkout.spec.ts failure is flaky: it passed 9 of 10 runs locally. Do you want me to replace it with an explicit wait?"
+  },
+  {
+    "name": "build-error-ts",
+    "mode": "brief",
+    "expected": "I can fix it by parsing the value first. Go ahead?"
+  },
+  {
+    "name": "lint-fixed",
+    "mode": "brief",
+    "expected": "Fixed all 17 lint errors."
+  },
+  {
+    "name": "tests-not-run",
+    "mode": "brief",
+    "expected": "I made the change but couldn't run the tests: the database container isn't running. Can you start it with docker compose up -d db?"
+  },
+  {
+    "name": "typecheck-clean",
+    "mode": "brief",
+    "expected": "Typecheck is clean and the bundle shrank from 412 kB to 388 kB."
+  },
+  {
+    "name": "root-cause",
+    "mode": "brief",
+    "expected": "The webhook handler reads req.body before the raw-body middleware runs, so the signature check always fails."
+  },
+  {
+    "name": "stack-trace-dump",
+    "mode": "brief",
+    "expected": "I added a guard that returns 404."
+  },
+  {
+    "name": "cannot-reproduce",
+    "mode": "brief",
+    "expected": "I couldn't reproduce the crash on Node 20 or 22. Can you share the exact command and the full error output?"
+  },
+  {
+    "name": "permission-denied",
+    "mode": "brief",
+    "expected": "It needs to run as the app user, or the directory needs group write access. Which do you prefer?"
+  },
+  {
+    "name": "oom-fix",
+    "mode": "chatty",
+    "expected": "The worker was killed by the OOM killer at about 1.9 GB. I switched it to stream rows in batches of 1000."
+  },
+  {
+    "name": "network-timeout",
+    "mode": "brief",
+    "expected": "I added a retry with exponential backoff, capped at 3 attempts."
+  },
+  {
+    "name": "two-options",
+    "mode": "brief",
+    "expected": "There are two ways to do this. Which one do you want?"
+  },
+  {
+    "name": "multi-question",
+    "mode": "brief",
+    "expected": "Do you want the export to include archived projects? And should the dates be in UTC or local time?"
+  },
+  {
+    "name": "clarify-scope",
+    "mode": "brief",
+    "expected": "Before I start: should this cover only the admin dashboard, or the customer portal too?"
+  },
+  {
+    "name": "confirm-destructive",
+    "mode": "brief",
+    "expected": "This will delete 2,341 orphaned rows from sessions. Should I run it?"
+  },
+  {
+    "name": "rhetorical-then-ask",
+    "mode": "brief",
+    "expected": "Very little: the extra query is cached. Want me to add a benchmark anyway?"
+  },
+  {
+    "name": "question-mid-message",
+    "mode": "brief",
+    "expected": "I left it in for now. Should I keep the old flag?"
+  },
+  {
+    "name": "yes-no-question-short",
+    "mode": "brief",
+    "expected": "Ready to deploy. Deploy now?"
+  },
+  {
+    "name": "plan-list",
+    "mode": "chatty",
+    "expected": "Add a status column with a default of active. Backfill existing rows in batches. Shall I start with step 1?"
+  },
+  {
+    "name": "proposal-next-step",
+    "mode": "chatty",
+    "expected": "The search endpoint now uses the new index. Response time dropped from 800 ms to 60 ms. Next I could add pagination so large result sets stay fast. Want me to do that?"
+  },
+  {
+    "name": "todo-progress",
+    "mode": "brief",
+    "expected": "Finished 3 of 5 tasks: the schema, the API route and the tests."
+  },
+  {
+    "name": "explain-concept",
+    "mode": "brief",
+    "expected": "A race condition happens when two requests read the balance before either writes it."
+  },
+  {
+    "name": "explain-with-code",
+    "mode": "brief",
+    "expected": "The hook runs on every render because its dependency array is missing."
+  },
+  {
+    "name": "answer-only",
+    "mode": "brief",
+    "expected": "Yes, structuredClone handles Maps, Sets and Dates, but not functions or DOM nodes."
+  },
+  {
+    "name": "long-explanation-chatty",
+    "mode": "chatty",
+    "expected": "The login slowdown comes from bcrypt. The cost factor is 14, which takes about 1.2 seconds per hash on this server. Should I lower it?"
+  },
+  {
+    "name": "version-bump",
+    "mode": "brief",
+    "expected": "Bumped the version to 3.12.0 and updated the changelog."
+  },
+  {
+    "name": "semver-range",
+    "mode": "brief",
+    "expected": "Upgraded React from 18.2.0 to 18.3.1."
+  },
+  {
+    "name": "money-and-percent",
+    "mode": "brief",
+    "expected": "The monthly bill dropped from $1,240 to $415, about 67% lower."
+  },
+  {
+    "name": "ports-and-ips",
+    "mode": "brief",
+    "expected": "The service now listens on port 8080 and the health check at 10.0.3.7 passes."
+  },
+  {
+    "name": "durations",
+    "mode": "brief",
+    "expected": "The nightly job went from 2h 14m to 38m after I parallelized the uploads."
+  },
+  {
+    "name": "huge-number-commas",
+    "mode": "brief",
+    "expected": "The events table has about 48 million rows, so I added a partial index for the last 30 days."
+  },
+  {
+    "name": "sha256-in-text",
+    "mode": "brief",
+    "expected": "The download checksum matches: an ID."
+  },
+  {
+    "name": "env-var-names",
+    "mode": "brief",
+    "expected": "Set DATABASE URL and REDIS URL in the staging environment and restarted the app."
+  },
+  {
+    "name": "issue-and-pr-numbers",
+    "mode": "brief",
+    "expected": "This fixes issue 482."
+  },
+  {
+    "name": "date-and-time",
+    "mode": "brief",
+    "expected": "The certificate expires on January 14, 2027 at 09:00 UTC."
+  },
+  {
+    "name": "single-file-created",
+    "mode": "brief",
+    "expected": "Created restore-backup.md with the restore steps and the verification queries."
+  },
+  {
+    "name": "windows-path",
+    "mode": "brief",
+    "expected": "I updated it to use the user profile instead."
+  },
+  {
+    "name": "home-path",
+    "mode": "brief",
+    "expected": "I added the new key there."
+  },
+  {
+    "name": "many-files-changed",
+    "mode": "brief",
+    "expected": "Updated 14 files to use the new logger: users.ts, orders.ts, 2 other files and 10 more."
+  },
+  {
+    "name": "dotfile",
+    "mode": "brief",
+    "expected": "Added .env.example and listed .env in .gitignore."
+  },
+  {
+    "name": "headings-and-bullets",
+    "mode": "brief",
+    "expected": "Ran the full suite: green."
+  },
+  {
+    "name": "bold-everything",
+    "mode": "brief",
+    "expected": "The migration ran successfully on staging."
+  },
+  {
+    "name": "nested-list",
+    "mode": "brief",
+    "expected": "Added orders."
+  },
+  {
+    "name": "table-and-summary",
+    "mode": "brief",
+    "expected": "Both endpoints are well under the 200 ms target now."
+  },
+  {
+    "name": "diff-block",
+    "mode": "brief",
+    "expected": "Retries are now 5."
+  },
+  {
+    "name": "json-block",
+    "mode": "brief",
+    "expected": "Here is the response."
+  },
+  {
+    "name": "cannot-do",
+    "mode": "brief",
+    "expected": "I pushed to fix cache-key instead."
+  },
+  {
+    "name": "needs-credentials",
+    "mode": "brief",
+    "expected": "The deploy needs an AWS profile with ECR access, and none is configured here. Can you run aws sso login and tell me when it is done?"
+  },
+  {
+    "name": "nothing-to-do",
+    "mode": "brief",
+    "expected": "There is nothing to change: the setting is already enabled in all three environments."
+  },
+  {
+    "name": "partial-success",
+    "mode": "brief",
+    "expected": "Migrated 47 of 50 repositories. Do you want me to unarchive them and retry?"
+  },
+  {
+    "name": "background-running",
+    "mode": "brief",
+    "expected": "The full test suite is running in the background; it takes about 8 minutes."
+  },
+  {
+    "name": "thanks-reply",
+    "mode": "brief",
+    "expected": "You're welcome!"
+  },
+  {
+    "name": "greeting-question",
+    "mode": "brief",
+    "expected": "What would you like to work on today?"
+  },
+  {
+    "name": "apology-correction",
+    "mode": "brief",
+    "expected": "I changed the limit to apply per user instead of per IP."
+  },
+  {
+    "name": "exclamation-result",
+    "mode": "brief",
+    "expected": "It works!"
+  },
+  {
+    "name": "abbreviations-mix",
+    "mode": "brief",
+    "expected": "Updated the API docs, that is the OpenAPI spec, and fixed the CI config and so on."
+  },
+  {
+    "name": "ellipsis-trailing",
+    "mode": "brief",
+    "expected": "Still investigating the memory leak."
+  },
+  {
+    "name": "quote-in-message",
+    "mode": "brief",
+    "expected": "The error message says \"connection refused\", so the database is not reachable from the container."
+  },
+  {
+    "name": "parenthetical",
+    "mode": "brief",
+    "expected": "I added caching (with a 5 minute TTL) to the product lookup, which cut database load by about half."
+  },
+  {
+    "name": "very-long-sentence",
+    "mode": "brief",
+    "expected": "I went through the whole authentication flow, from the login form through the session middleware, the token refresh logic and the logout handler."
+  },
+  {
+    "name": "colon-list-inline",
+    "mode": "brief",
+    "expected": "Three things changed: the timeout, the retry count and the log level."
+  },
+  {
+    "name": "non-english-word",
+    "mode": "brief",
+    "expected": "Renamed the café menu component and fixed the naïve date parsing."
+  },
+  {
+    "name": "shell-prompt-line",
+    "mode": "brief",
+    "expected": "Published version 1.4.2 to npm."
+  },
+  {
+    "name": "chatty-question-only",
+    "mode": "chatty",
+    "expected": "Which database should the new service use, Postgres or SQLite?"
+  },
+  {
+    "name": "alerts-mode-long",
+    "mode": "alerts",
+    "expected": ""
+  },
+  {
+    "name": "chatty-no-question",
+    "mode": "chatty",
+    "expected": "I upgraded the ORM to version 5. The test suite is green and the staging deploy is healthy."
   }
 ]
